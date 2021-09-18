@@ -1,11 +1,5 @@
 #!/usr/bin/env node
-
-import {
-    extract,
-    parseMarkup,
-    resolveConfig,
-    stringifyMarkup,
-} from 'emmet'
+import { extract, parseMarkup, resolveConfig, stringifyMarkup } from 'emmet'
 import { FieldOutput } from 'emmet/dist/src/config'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
@@ -21,7 +15,6 @@ import {
     TextDocuments,
     TextDocumentSyncKind,
 } from 'vscode-languageserver/node'
-import { DefaultSettings } from './server.types'
 
 let connection = createConnection(ProposedFeatures.all)
 
@@ -38,6 +31,7 @@ const outField: FieldOutput = (index, placeholder) =>
 const getConfig = (languageId: string) => {
     let config = null
     switch (languageId) {
+        case 'scss':
         case 'css': {
             config = resolveConfig({
                 type: 'stylesheet',
@@ -52,7 +46,7 @@ const getConfig = (languageId: string) => {
         case 'typescript.tsx':
         case 'typescript.jsx': {
             config = resolveConfig({
-                type: 'stylesheet',
+                type: 'markup',
                 options: {
                     'output.field': outField,
                     'jsx.enabled': true,
@@ -62,6 +56,7 @@ const getConfig = (languageId: string) => {
         }
         default: {
             config = resolveConfig({
+                type: 'markup',
                 options: {
                     'output.field': outField,
                 },
@@ -127,63 +122,70 @@ connection.onInitialized(() => {
     }
 })
 
-// The global settings, used when the `workspace/configuration` request is not supported by the client.
-// Please note that this is not the case when using this server with the client provided in this example
-// but could happen with other clients.
-const defaultSettings: DefaultSettings = { maxNumberOfProblems: 1000 }
-let globalSettings: DefaultSettings = defaultSettings
-
-// Cache the settings of all open documents
-let documentSettings: Map<string, Thenable<DefaultSettings>> = new Map()
-
-function getDocumentSettings(resource: string): Thenable<DefaultSettings> {
-    if (!hasConfigurationCapability) {
-        return Promise.resolve(globalSettings)
-    }
-    let result = documentSettings.get(resource)
-    if (!result) {
-        result = connection.workspace.getConfiguration({
-            scopeUri: resource,
-            section: 'languageServerExample',
-        })
-        documentSettings.set(resource, result)
-    }
-    return result
-}
-
-documents.onDidClose((e) => {
-    documentSettings.delete(e.document.uri)
-})
-
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
     item.insertTextFormat = InsertTextFormat.Snippet
+    connection.console.info(
+        `[Emmet LS] on position resolve${JSON.stringify(item, null, 2)}`
+    )
     return item
 })
+
 connection.onCompletion(
     (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
         try {
-            let docs = documents.get(_textDocumentPosition.textDocument.uri)
-            if (!docs) throw 'failed to find document'
-            let languageId = docs.languageId
-            let content = docs.getText()
-            let linenr = _textDocumentPosition.position.line
-            let line = String(content.split(/\r?\n/g)[linenr])
-            let character = _textDocumentPosition.position.character
+            const doc = documents.get(_textDocumentPosition.textDocument.uri)
+            if (!doc) throw 'failed to find document'
+            const languageId = doc.languageId
+            connection.console.info(`[Emmet LS] languageId: ${languageId}`)
+            const content = doc.getText()
+
+            connection.console.info(
+                `[Emmet LS] doc position: ${JSON.stringify(
+                    _textDocumentPosition.position,
+                    null,
+                    2
+                )}`
+            )
+            const linenr = _textDocumentPosition.position.line
+            connection.console.info(`[Emmet LS] line number: ${linenr}`)
+            const line = String(content.split(/\r?\n/g)[linenr])
+            connection.console.info(`[Emmet LS] line: ${line}`)
+            const character = _textDocumentPosition.position.character
+            connection.console.info(`[Emmet LS] character: ${character}`)
             let extractPosition =
                 languageId != 'css'
                     ? extract(line, character)
                     : extract(line, character, { type: 'stylesheet' })
 
             if (extractPosition?.abbreviation == undefined) {
-                throw 'failed to parse line'
+                throw `Failed to parse line: ${line}`
             }
 
+            connection.console.info(
+                `[Emmet LS] extracted emmet position: ${JSON.stringify(
+                    extractPosition,
+                    null,
+                    2
+                )}`
+            )
             let left = extractPosition.start
-            let right = extractPosition.start
+            let right = extractPosition.end
             let abbreviation = extractPosition.abbreviation
             const config = getConfig(languageId)
+
+            connection.console.info(
+                `[Emmet LS] generated config: ${JSON.stringify(
+                    config,
+                    null,
+                    2
+                )}`
+            )
             const markup = parseMarkup(abbreviation, config)
+            connection.console.info(
+                `[Emmet LS] emmet markup: ${JSON.stringify(markup, null, 2)}`
+            )
             const textResult = stringifyMarkup(markup, config)
+            connection.console.info(`[Emmet LS] markup: ${textResult}`)
             const range = {
                 start: {
                     line: linenr,
@@ -195,25 +197,33 @@ connection.onCompletion(
                 },
             }
 
-            return [
-                {
-                    insertTextFormat: InsertTextFormat.Snippet,
-                    label: abbreviation,
-                    detail: abbreviation,
-                    documentation: textResult,
-                    textEdit: {
-                        range,
-                        newText: textResult,
-                    },
-                    kind: CompletionItemKind.Snippet,
-                    data: {
-                        range,
-                        textResult,
-                    },
+            const result = {
+                insertTextFormat: InsertTextFormat.Snippet,
+                label: abbreviation,
+                detail: textResult,
+                documentation: textResult,
+                textEdit: {
+                    range,
+                    newText: textResult,
                 },
-            ]
+                kind: CompletionItemKind.Snippet,
+                data: {
+                    range,
+                    textResult,
+                },
+            }
+
+            connection.console.info(
+                `[Emmet LS] language server result: ${JSON.stringify(
+                    result,
+                    null,
+                    2
+                )}`
+            )
+
+            return [result]
         } catch (error) {
-            connection.console.log(`ERR: ${error}`)
+            connection.console.error(`[Emmet LS] ERR: ${error}`)
         }
 
         return []
