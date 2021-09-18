@@ -1,11 +1,7 @@
 {
+  "extends": "@tsconfig/node14/tsconfig.json",
 	"compilerOptions": {
-		"target": "es2019",
-		"lib": ["ES2019"],
-		"module": "commonjs",
-		"moduleResolution": "node",
 		"sourceMap": true,
-		"strict": true,
 		"outDir": "out",
 		"rootDir": "src",
     "types": [

@@ -31,5 +31,8 @@
   },
   "homepage": "https://github.com/kozer/emmet-language-server#readme",
   "main": "index.js",
-  "devDependencies": {}
+  "devDependencies": {
+    "@tsconfig/node14": "^1.0.1",
+    "prettier": "^2.4.1"
+  }
 }
