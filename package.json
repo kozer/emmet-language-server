@@ -1,0 +1,29 @@
+{
+	"name": "emmet-language-server",
+	"description": "emmet support by LSP",
+	"version": "0.1.1",
+	"author": "kozer",
+	"license": "MIT",
+	"engines": {
+		"node": "*"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/kozer/emmet-language-server"
+	},
+	"dependencies": {
+		"@types/node": "^16.9.2",
+		"emmet": "^2.3.4",
+		"typescript": "^4.4.3",
+		"vscode-languageserver": "^7.0.0",
+		"vscode-languageserver-textdocument": "^1.0.1"
+	},
+	"scripts": {
+    "prepare": "npm run build",
+		"dev": "npm run-script build && npm link",
+		"build": "tsc"
+	},
+	"bin": {
+		"emmet-language-server": "./out/server.js"
+	}
+}
