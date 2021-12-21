@@ -38,7 +38,7 @@ npm install -g @kozer/emmet-language-server
       };
     }
   end
-  lspconfig.emmet_ls.setup{ capabilities = capabilities; }
+  lspconfig.emmet_language_server.setup{ capabilities = capabilities; }
   ```
 - [completion-nvim](https://github.com/nvim-lua/completion-nvim)
 
